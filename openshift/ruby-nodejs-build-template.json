@@ -10,7 +10,7 @@
                 "name": "base-centos7",
                 "creationTimestamp": null,
                 "labels": {
-                    "build": "bcgov-s2i-ruby-nodejs"
+                    "build": "s2i-ruby-nodejs"
                 },
                 "annotations": {
                     "openshift.io/generated-by": "OpenShiftNewBuild"
@@ -40,10 +40,10 @@
             "kind": "ImageStream",
             "apiVersion": "v1",
             "metadata": {
-                "name": "bcgov-s2i-ruby-nodejs",
+                "name": "s2i-ruby-nodejs",
                 "creationTimestamp": null,
                 "labels": {
-                    "build": "bcgov-s2i-ruby-nodejs"
+                    "build": "s2i-ruby-nodejs"
                 },
                 "annotations": {
                     "openshift.io/generated-by": "OpenShiftNewBuild"
@@ -58,10 +58,10 @@
             "kind": "BuildConfig",
             "apiVersion": "v1",
             "metadata": {
-                "name": "bcgov-s2i-ruby-nodejs",
+                "name": "s2i-ruby-nodejs",
                 "creationTimestamp": null,
                 "labels": {
-                    "build": "bcgov-s2i-ruby-nodejs"
+                    "build": "s2i-ruby-nodejs"
                 },
                 "annotations": {
                     "openshift.io/generated-by": "OpenShiftNewBuild"
@@ -88,7 +88,7 @@
                     "dockerStrategy": {
                         "from": {
                             "kind": "ImageStreamTag",
-                            "name": "s2i-base-centos7:latest"
+                            "name": "centos/s2i-base-centos7:latest"
                         }
                     }
                 },
