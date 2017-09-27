@@ -1,82 +1,127 @@
+# OpenShift and Ruby+NodeJS Integration
+This documentation provides you with step by step instructions on how to build and deploy this
+application in an OpenShift 3.3+ and Ruby 2.x+ environment.  Jenkins is not required and you could
+just use the built-in OpenShift triggers.
 
-# Creating a basic S2I builder image  
+The benefits are:
 
-## Getting started  
+- Allows for the use of Jekyll
 
-### Files and Directories  
-| File                   | Required? | Description                                                  |
-|------------------------|-----------|--------------------------------------------------------------|
-| Dockerfile             | Yes       | Defines the base builder image                               |
-| s2i/bin/assemble       | Yes       | Script that builds the application                           |
-| s2i/bin/usage          | No        | Script that prints the usage of the builder                  |
-| s2i/bin/run            | Yes       | Script that runs the application                             |
-| s2i/bin/save-artifacts | No        | Script for incremental builds that saves the built artifacts |
-| test/run               | No        | Test script for the builder image                            |
-| test/test-app          | Yes       | Test application source code                                 |
+Enhancements to base Ruby image are:
 
-#### Dockerfile
-Create a *Dockerfile* that installs all of the necessary tools and libraries that are needed to build and run our application.  This file will also handle copying the s2i scripts into the created image.
+- added nodeJS support
+- TODO: Easy way to change Ruby versions (current version is 2.3).
 
-#### S2I scripts
+## Overview
 
-##### assemble
-Create an *assemble* script that will build our application, e.g.:
-- build python modules
-- bundle install ruby gems
-- setup application specific configuration
+This build strategy uses OpenShift's feature called [Extended Builds](https://docs.openshift.com/container-platform/3.3/dev_guide/builds.html#extended-builds).
 
-The script can also specify a way to restore any saved artifacts from the previous image.   
+In a nutshell, it allows you to build with one s2i image, i.e., NodeJS 6+, then use another image, i.e., nginx, for runtime.
 
-##### run
-Create a *run* script that will start the application.
+OpenShift is responsible for:
+- Building Docker images
+- Building S2I Images
+- Moving output of S2I to runtime image
+- Deployments
 
-##### save-artifacts (optional)
-Create a *save-artifacts* script which allows a new build to reuse content from a previous version of the application image.
+## Setup Angular-Builder
 
-##### usage (optional)
-Create a *usage* script that will print out instructions on how to use the image.
+This is your builder image that compiles the angular source code.
 
-##### Make the scripts executable
-Make sure that all of the scripts are executable by running *chmod +x s2i/bin/**
+This image is based on the OpenShift's community NodeJS 6 image, i.e., `FROM centos/nodejs-6-centos7`.
+We use this because the stock NodeJS 4 can't compile `angular-cli` (an ES6 issue).  Once the stock NodeJS 4 image
+is upgraded this won't be required.
 
-#### Create the builder image
-The following command will create a builder image named docker-centos-rbenv based on the Dockerfile that was created previously.
-```
-docker build -t docker-centos-rbenv .
-```
-The builder image can also be created by using the *make* command since a *Makefile* is included.
+To add this image to your OpenShift Project,
+1. Open OpenShift web console->Add to Project->Import YAML/JSON
+1. Paste `angular-builder.json` into form -> Create
+1. Change the Git Repo URL to yours -> Create
+1. With the new build config, go to the Builds-> `angular-builder` -> Start Build
 
-Once the image has finished building, the command *s2i usage docker-centos-rbenv* will print out the help info that was defined in the *usage* script.
+What happens in OpenShift:
+1. Fetches `Dockerfile` from `<your repo>/angular-builder/Dockerfile`
+1. Executes Dockerfile build strategy
+1. Pushes new `angular-builder` image into your project's Image Streams
 
-#### Testing the builder image
-The builder image can be tested using the following commands:
-```
-docker build -t docker-centos-rbenv-candidate .
-IMAGE_NAME=docker-centos-rbenv-candidate test/run
-```
-The builder image can also be tested by using the *make test* command since a *Makefile* is included.
+## Setup Nginx-runtime
 
-#### Creating the application image
-The application image combines the builder image with your applications source code, which is served using whatever application is installed via the *Dockerfile*, compiled using the *assemble* script, and run using the *run* script.
-The following command will create the application image:
-```
-s2i build test/test-app docker-centos-rbenv docker-centos-rbenv-app
----> Building and installing application from source...
-```
-Using the logic defined in the *assemble* script, s2i will now create an application image using the builder image as a base and including the source code from the test/test-app directory.
+This is your runtime image that is deployed with output of the `angular-builder`.
 
-#### Running the application image
-Running the application image is as simple as invoking the docker run command:
-```
-docker run -d -p 8080:8080 docker-centos-rbenv-app
-```
-The application, which consists of a simple static web page, should now be accessible at  [http://localhost:8080](http://localhost:8080).
+This images is based on docker hub's official nginx image, i.e., `FROM nginx:mainline`.  It will auto
+update to latest mainline for every build.  If you need to pin it to a version alter the `nginx-runtime/Dockerfile`.
 
-#### Using the saved artifacts script
-Rebuilding the application using the saved artifacts can be accomplished using the following command:
-```
-s2i build --incremental=true test/test-app nginx-centos7 nginx-app
----> Restoring build artifacts...
----> Building and installing application from source...
-```
-This will run the *save-artifacts* script which includes the custom code to backup the currently running application source, rebuild the application image, and then re-deploy the previously saved source using the *assemble* script.
+To add this image to your OpenShift Project,
+1. Open OpenShift web console->Add to Project->Import YAML/JSON
+1. Paste `nginx-runtime.json` into form -> Create
+1. Change the Git Repo URL to yours -> Create
+1. With the new build config, go to the Builds-> `nginx-runtime` -> Start Build
+
+What happens in OpenShift:
+1. Fetches `Dockerfile` from `<your repo>/angular-builder/Dockerfile`
+1. Executes Dockerfile build strategy
+1. Pushes new `nginx-runtime` image into your project's Image Streams
+
+## Setup Angular-on-Nginx Builder
+
+This is the s2i builder image to glue the `angular-builder` output with the `nginx-runtime` image.  The result is a
+new image based on `nginx-runtime` but with the output of `angular-builder`.
+
+To add this image to your OpenShift Project,
+1. Open OpenShift web console->Add to Project->Import YAML/JSON
+1. Paste `angular-on-nginx-build.json` into form -> Create
+1. Change the `Name` to the name of your application
+1. Change the `Git Source Repo URL` to yours -> Create
+1. This should auto trigger a build
+
+What happens in OpenShift:
+1. Trigger's `angular-builder` to build with your source code
+1. Copies output, i.e., `/opt/app-root/src/dist/` to `nginx-runtime` directory `tmp/app`
+1. Create to image, `<your app name>-build` to Image Stream
+
+## Setup "Your App" Deployment
+
+Once we've got an image out of the `angular-on-nginx` builder, e.g., `<your app name>`, we
+need to setup the deployment.  We've provide a deployment template that is based on real load testing:
+1. Tuned CPU/Memory for the ngnix runtime on containers
+1. Auto-scaling for high work loads
+1. Tweaked readiness and liveness probes settings
+
+The deployment template will create in OpenShift:
+1. Deployment config with default nginx runtime env vars
+1. Service config
+1. Route config
+
+To add this image to your OpenShift Project,
+1. Open OpenShift web console->Add to Project->Import YAML/JSON
+1. Paste `angular-on-nginx-deploy` into form -> Create
+1. Change the `Name` to the name of your application
+1. Change the `Image Namespace` to the project of where it's built
+1. Change the `Env TAG name` to the name of your application
+1. Change the `APPLICATION_DOMAIN` to the domain name you would like
+1. This should auto trigger a build
+
+Repeat these steps for each environment you have changing the `Env TAG name`.
+
+## Jenkins vs OpenShift Triggers
+
+You can choose not to use Jenkins at this point.  Instead, use vanilla OpenShift build triggers and image
+changes deployments.  However, Jenkins provides some nice features you'll probably need.
+
+## Jenkins Install
+
+So, you've chosen to use Jenkins!  Congrats!
+
+This repo also comes with a `Jenkinsfile` to take advantage of the Pipelines feature in OpenShift and Jenkins.
+
+[Follow BCDevOps Jenkins Configuration to get started](https://github.com/BCDevOps/issues-and-solutions/wiki/Jenkins-Configuration)
+
+Note: we've already provided the default `Jenkinsfile` tailored for this app.
+
+## Jenkins Additional Setup
+
+Jenkins out-of-the-box needs some additional setup.  
+
+1. First off, you'll need the admin password.  Go the Deployments -> `jenkins-pipeline-svc` -> Environment -> `JENKINS_PASSWORD`
+1. Navigate to jenkins web site by looking in your Routes in made for Jenkins
+1. Upgrade all the plugins in Jenkins
+1. Add the `GitHub` plugin

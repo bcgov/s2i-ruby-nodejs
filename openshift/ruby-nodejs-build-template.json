@@ -7,39 +7,6 @@
             "kind": "ImageStream",
             "apiVersion": "v1",
             "metadata": {
-                "name": "base-centos7",
-                "creationTimestamp": null,
-                "labels": {
-                    "build": "s2i-ruby-nodejs"
-                },
-                "annotations": {
-                    "openshift.io/generated-by": "OpenShiftNewBuild"
-                }
-            },
-            "spec": {
-                "tags": [
-                    {
-                        "name": "latest",
-                        "annotations": {
-                            "openshift.io/imported-from": "centos/s2i-base-centos7"
-                        },
-                        "from": {
-                            "kind": "DockerImage",
-                            "name": "centos/s2i-base-centos7"
-                        },
-                        "generation": null,
-                        "importPolicy": {}
-                    }
-                ]
-            },
-            "status": {
-                "dockerImageRepository": ""
-            }
-        },
-        {
-            "kind": "ImageStream",
-            "apiVersion": "v1",
-            "metadata": {
                 "name": "s2i-ruby-nodejs",
                 "creationTimestamp": null,
                 "labels": {
@@ -84,11 +51,11 @@
                     }
                 },
                 "strategy": {
-                    "type": "Docker",
                     "dockerStrategy": {
                         "from": {
                             "kind": "ImageStreamTag",
-                            "name": "centos/s2i-base-centos7:latest"
+                            "name": "base-centos7:latest",
+                            "namespace": "openshift"
                         }
                     }
                 },
