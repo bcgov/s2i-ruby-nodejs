@@ -8,6 +8,7 @@
 #
 
 mv /tmp/src/* ./
-bundle install
+gem install bundler --pre
+bundler install
 
 fix-permissions ./
