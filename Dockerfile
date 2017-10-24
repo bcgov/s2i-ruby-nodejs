@@ -26,14 +26,18 @@ LABEL summary="$SUMMARY" \
       release="1" \
       maintainer="Daniel Truong <daniel.truong@gov.bc.ca>"
 
+# Set the locale
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
 RUN yum install -y centos-release-scl && \
     yum-config-manager --enable centos-sclo-rh-testing && \
     INSTALL_PKGS="rh-ruby23 rh-ruby23-ruby-devel rh-ruby23-rubygem-bundler rh-nodejs4 rh-nodejs4-npm" && \
     yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && rpm -V $INSTALL_PKGS && \
     yum clean all -y
 
-# Set the locale
-RUN localedef -i en_US -f UTF-8 en_US.UTF-8    
+RUN bundle 
 
 # Copy the S2I scripts from the specific language image to $STI_SCRIPTS_PATH
 COPY ./s2i/bin/ $STI_SCRIPTS_PATH
