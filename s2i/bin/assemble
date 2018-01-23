@@ -10,4 +10,4 @@ mv /tmp/src/* ./
 gem install bundler --pre
 bundler install
 
-fix-permissions ./
+# fix-permissions ./
